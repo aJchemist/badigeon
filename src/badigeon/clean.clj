@@ -1,18 +1,22 @@
 (ns badigeon.clean
-  (:import [java.nio.file Path Paths FileVisitor Files FileVisitResult FileVisitOption]))
+  (:require
+   [badigeon.io.alpha :as io]
+   )
+  (:import
+   java.nio.file.FileVisitOption
+   java.nio.file.FileVisitResult
+   java.nio.file.FileVisitor
+   java.nio.file.Files
+   java.nio.file.Path
+   java.nio.file.Paths
+   ))
 
-(defn same-directory? [^Path path1 ^Path path2]
-  (let [normalized-path1 (-> path1 (.toAbsolutePath) (.normalize))
-        normalized-path2 (-> path2 (.toAbsolutePath) (.normalize))]
-    (= (str normalized-path2) (str normalized-path1))))
 
-(defn is-parent-path? [^Path path1 ^Path path2]
-  (let [normalized-path1 (-> path1 (.toAbsolutePath) (.normalize))
-        normalized-path2 (-> path2 (.toAbsolutePath) (.normalize))]
-    (and (.startsWith (str normalized-path2) (str normalized-path1))
-         (not= (str normalized-path2) (str normalized-path1)))))
+(set! *warn-on-reflection* true)
 
-(defn- make-file-visitor []
+
+(defn- make-file-visitor
+  []
   (reify FileVisitor
     (postVisitDirectory [_ dir exception]
       (if (nil? exception)
@@ -28,35 +32,44 @@
     (visitFileFailed [_ file exception]
       (throw exception))))
 
-(defn delete-recursively [^Path dir]
-  (when (.exists (.toFile dir))
-    (Files/walkFileTree dir (make-file-visitor))))
 
-(defn sanity-check [path allow-outside-target?]
-  (let [root-path (Paths/get (System/getProperty "user.dir") (make-array String 0))
+(defn delete-recursively
+  [^Path path]
+  (when (io/exists? path)
+    (Files/walkFileTree path (make-file-visitor))))
+
+
+(defn sanity-check
+  [path allow-outside-target?]
+  (let [root-path   (io/path (System/getProperty "user.dir"))
         target-path (.resolve root-path "target")]
-    (when (not (is-parent-path? root-path path))
+    (when (not (io/is-parent-path? root-path path))
       (throw (IllegalArgumentException. "Cannot delete a directory outside of project root")))
     (when (and
-           (not allow-outside-target?)
-           (not (same-directory? target-path path))
-           (not (is-parent-path? target-path path)))
+            (not allow-outside-target?)
+            (not (io/same-directory? target-path path))
+            (not (io/is-parent-path? target-path path)))
       (throw (IllegalArgumentException. "Cannot delete a directory outside of target-directory. Consider setting the \"allow-outside-target?\" option if you really want to delete this directory.")))))
+
 
 (defn clean
   "Delete the target-directory. The directory to delete must not be outside of project root. By default, the directory to delete must either be the directory named \"target\" or must be inside the directory named \"target\". Setting the \"allow-outside-target?\" parameter to true makes deleting directories outside \"target\" possible."
   ([target-directory]
    (clean target-directory nil))
   ([target-directory {:keys [allow-outside-target?]}]
-   (let [path (if (string? target-directory)
-                (Paths/get target-directory (make-array String 0))
-                target-directory)]
+   (let [path (io/path target-directory)]
      (sanity-check path allow-outside-target?)
-     (delete-recursively path))))
+     (delete-recursively path)
+     target-directory)))
+
+
+(set! *warn-on-reflection* false)
+
 
 (comment
   (clean "target")
   )
+
 
 ;; We do not forbid file overwriting in compile/javac/jar/bundle because
 ;; compile -> does not work with an existing file which is not a directory
