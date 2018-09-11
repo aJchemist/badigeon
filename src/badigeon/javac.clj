@@ -1,14 +1,32 @@
 (ns badigeon.javac
-  (:require [clojure.tools.deps.alpha :as deps]
-            [clojure.tools.deps.alpha.reader :as deps-reader])
-  (:import [javax.tools ToolProvider JavaCompiler]
-           [java.nio.file Path Paths Files FileVisitor FileVisitResult
-            FileVisitOption FileSystemLoopException NoSuchFileException]
-           [java.util EnumSet]
-           [java.nio.file.attribute BasicFileAttributes FileAttribute]
-           [java.io ByteArrayOutputStream]))
+  (:require
+   [clojure.java.io :as jio]
+   [badigeon.io.alpha :as io]
+   [badigeon.classpath :as classpath]
+   )
+  (:import
+   java.io.ByteArrayOutputStream
+   java.nio.file.FileSystemLoopException
+   java.nio.file.FileVisitOption
+   java.nio.file.FileVisitResult
+   java.nio.file.FileVisitor
+   java.nio.file.Files
+   java.nio.file.NoSuchFileException
+   java.nio.file.Path
+   java.nio.file.Paths
+   java.nio.file.attribute.BasicFileAttributes
+   java.nio.file.attribute.FileAttribute
+   java.util.EnumSet
+   javax.tools.JavaCompiler
+   javax.tools.ToolProvider
+   ))
 
-(defn- make-file-visitor [compiler source-dir compile-dir visitor-fn]
+
+(set! *warn-on-reflection* true)
+
+
+(defn- make-file-visitor
+  [compiler source-dir compile-dir visitor-fn]
   (reify FileVisitor
     (postVisitDirectory [_ dir exception]
       FileVisitResult/CONTINUE)
@@ -18,76 +36,79 @@
       (visitor-fn compiler source-dir compile-dir path attrs)
       FileVisitResult/CONTINUE)
     (visitFileFailed [_ file exception]
-      (cond (instance? FileSystemLoopException exception)
-            FileVisitResult/SKIP_SUBTREE
-            (instance? NoSuchFileException exception)
-            FileVisitResult/SKIP_SUBTREE
-            :else (throw exception)))))
+      (case (.getName ^Class exception)
+        "java.nio.file.FileSystemLoopException" FileVisitResult/SKIP_SUBTREE
+        "java.nio.file.NoSuchFileException"     FileVisitResult/SKIP_SUBTREE
+        (throw exception)))))
 
-(defn is-java-file? [path ^BasicFileAttributes attrs]
+
+(defn is-java-file?
+  [path ^BasicFileAttributes attrs]
   (and (.isRegularFile attrs) (.endsWith (str path) ".java")))
+
 
 (def ^{:dynamic true
        :private true}
   *java-paths* nil)
 
+
 (defn- visit-path [compiler source-dir compile-dir path attrs]
   (when (is-java-file? path attrs)
-    (Files/createDirectories compile-dir (make-array FileAttribute 0))
     (set! *java-paths* (conj! *java-paths* path))))
 
-(defn- get-classpath
-  ([]
-   (get-classpath nil))
-  ([alias-kws]
-   (let [{:keys [config-files]} (deps-reader/clojure-env)
-         deps-map (deps-reader/read-deps config-files)
-         args-map (deps/combine-aliases deps-map alias-kws)]
-     (-> (deps/resolve-deps deps-map args-map)
-       (deps/make-classpath nil args-map)))))
 
-(defn- javac-command [classpath compile-path paths opts]
+(defn- javac-command
+  [classpath compile-path paths opts]
   (into `["-cp" ~classpath ~@opts "-d" ~(str compile-path)]
-        (map str paths)))
+    (map str paths)))
 
-(defn- javac* [^JavaCompiler compiler source-dir compile-dir {:keys [alias-kws javac-options]}]
-  (let [source-dir (Paths/get source-dir (make-array String 0))
-        compile-dir (Paths/get compile-dir (make-array String 0))]
+
+(defn success? [ret] (zero? ret))
+
+
+(defn- javac*
+  "Return an integer, 0 for success; nonzero otherwise."
+  [^JavaCompiler compiler java-source-paths compile-dir classpath javac-options]
+  (let [compile-dir (io/path compile-dir)]
+    (io/create-directories compile-dir)
     (binding [*java-paths* (transient [])]
-      (Files/walkFileTree source-dir
-                          (EnumSet/of FileVisitOption/FOLLOW_LINKS)
-                          Integer/MAX_VALUE
-                          (make-file-visitor compiler source-dir compile-dir visit-path))
+      (doseq [source-dir java-source-paths
+              :let [source-dir (io/path source-dir)]]
+        (Files/walkFileTree
+          source-dir
+          (EnumSet/of FileVisitOption/FOLLOW_LINKS)
+          Integer/MAX_VALUE
+          (make-file-visitor compiler source-dir compile-dir visit-path)))
       (let [java-paths (persistent! *java-paths*)]
         (when (seq java-paths)
-          (let [javac-command (javac-command (get-classpath alias-kws) compile-dir java-paths javac-options)]
-            (let [compiler-out (ByteArrayOutputStream.)
-                  compiler-err (ByteArrayOutputStream.)]
-              (.run compiler nil compiler-out compiler-err (into-array String javac-command))
-              (print (str compiler-out))
-              (print (str compiler-err)))))))))
+          (let [javac-command (javac-command classpath compile-dir java-paths javac-options)]
+            (.run compiler nil (System/out) (System/err) (into-array String javac-command))))))))
+
 
 (defn javac
   "Compiles java source files found in the \"source-dir\" directory.
-  - source-dir: The path of a directory containing java source files.
+  - java-source-paths: The paths of a directory containing java source files.
   - compile-path: The path to the directory where .class file are emitted.
-  - javac-options: A vector of the options to be used when invoking the javac command.
-  - alias-kws: A vector of the alias keywords on deps.edn to be used when getting classpath."
-  ([source-dir]
-   (javac source-dir nil))
-  ([source-dir {:keys [alias-kws compile-path javac-options]
-                :or {compile-path "target/classes"}
-                :as options}]
-   (let [compile-path (if (instance? Path compile-path)
-                        (str compile-path)
-                        compile-path)
-         compiler (ToolProvider/getSystemJavaCompiler)]
+  - classpath: The concatenated string of classpath to be passed to javac \"-cp\" argument.
+  - javac-options: A vector of the options to be used when invoking the javac command."
+  ([java-source-paths]
+   (javac java-source-paths nil nil nil))
+  ([java-source-paths compile-path classpath javac-options]
+   (let [compiler     (ToolProvider/getSystemJavaCompiler)
+         compile-path (or compile-path "target/classes")
+         classpath    (or classpath (classpath/get-classpath))]
      (when (nil? compiler)
        (throw (ex-info "Java compiler not found" {})))
-     (javac* compiler source-dir compile-path options))))
+     (javac* compiler java-source-paths compile-path classpath javac-options))))
+
+
+(set! *warn-on-reflection* false)
+
 
 (comment
-  (javac ["src-java"]
-         {:compile-path "target/classes"
-          :javac-options ["-target" "1.6" "-source" "1.6" "-Xlint:-options"]})
+  (javac
+    ["src-java"]
+    "target/classes"
+    nil
+    ["-target" "1.6" "-source" "1.6" "-Xlint:-options"])
   )
