@@ -2,6 +2,7 @@
   (:require
    [clojure.java.io :as jio]
    [clojure.tools.deps.alpha.gen.pom :as gen.pom]
+   [clojure.tools.deps.alpha.reader :as deps.reader]
    [clojure.tools.deps.alpha.util.io :refer [printerrln]]
    )
   (:import
@@ -172,6 +173,8 @@
 
 
 (defn sync-pom
+  ([lib mvn-coords]
+   (sync-pom lib mvn-coords (deps.reader/read-deps (:config-files (deps.reader/clojure-env)))))
   ([lib mvn-coords deps-map]
    (sync-pom lib mvn-coords deps-map (jio/file ".")))
   ([lib {:keys [:mvn/version]} {:keys [deps paths :mvn/repos] :as c} ^File dir]
