@@ -63,7 +63,7 @@
   (when pom-properties
     {:op        :write
      :path      (str "META-INF/maven/" group-id "/" artifact-id "/pom.properties")
-     :writer-fn (fn [os] (pom/store-pom-properties os pom-properties nil))}))
+     :writer-fn (fn [os] (maven/store-pom-properties os pom-properties nil))}))
 
 
 (defn deps-edn-operation
@@ -143,7 +143,7 @@
                               {:out-path out-path})))
          jarfs          (jar/getjarfs out-path)
          the-manifest   (jar/create-manifest main manifest)
-         pom-properties (or pom-properties (pom/make-pom-properties lib maven-coords))
+         pom-properties (or pom-properties (maven/make-pom-properties lib maven-coords))
          deps-map       (deps.reader/read-deps (:config-files (deps.reader/clojure-env)))
          paths          (or paths (:paths deps-map))]
      (when-not allow-all-dependencies?
