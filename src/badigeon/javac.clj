@@ -1,7 +1,7 @@
 (ns badigeon.javac
   (:require
    [clojure.java.io :as jio]
-   [badigeon.io.alpha :as io]
+   [user.java.io.alpha :as io]
    [badigeon.classpath :as classpath]
    )
   (:import
@@ -70,7 +70,7 @@
   "Return an integer, 0 for success; nonzero otherwise."
   [^JavaCompiler compiler java-source-paths compile-dir classpath javac-options]
   (let [compile-dir (io/path compile-dir)]
-    (io/create-directories compile-dir)
+    (io/mkdir compile-dir)
     (binding [*java-paths* (transient [])]
       (doseq [source-dir java-source-paths
               :let [source-dir (io/path source-dir)]]

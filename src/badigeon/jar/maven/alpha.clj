@@ -2,7 +2,7 @@
   (:require
    [clojure.java.io :as jio]
    [clojure.tools.deps.alpha.reader :as deps.reader]
-   [badigeon.io.alpha :as io]
+   [user.java.io.alpha :as io]
    [badigeon.pom :as pom]
    [badigeon.jar :as jar]
    )
@@ -13,6 +13,23 @@
 
 
 (set! *warn-on-reflection* true)
+
+
+(defn- path-resolve
+  [^Path a ^Path b]
+  (. a resolve b))
+
+
+(defn do-operations
+  [^Path dest operations]
+  (doseq [op operations]
+    (try
+      (case (:op op)
+        :copy  (io/copy! (io/path (:src op)) (path-resolve dest (:path op)) (select-keys op [:time :mode]))
+        :write (io/write! (path-resolve dest (:path op)) (:writer-fn op))
+        (throw (UnsupportedOperationException. (pr-str op))))
+      (catch Throwable e
+        (throw (ex-info "Operation failed:" {:operation op :exception e}))))))
 
 
 (defn ^String make-jarname
@@ -132,7 +149,7 @@
      (when-not allow-all-dependencies?
        (check-non-maven-dependencies deps-map))
      (let [dest (io/path jarfs)]
-       (io/do-operations
+       (do-operations
          dest
          (transduce
            (filter sequential?)

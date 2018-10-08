@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [compile])
   (:require
    [clojure.string :as str]
-   [badigeon.io.alpha :as io]
+   [user.java.io.alpha :as io]
    [badigeon.classpath :as classpath]
    )
   (:import
@@ -22,8 +22,7 @@
 
 (defn- do-compile
   [namespaces compile-path compiler-options]
-  (let [^Path compile-path (io/path compile-path)]
-    (io/create-directories compile-path)
+  (let [^Path compile-path (io/mkdir compile-path)]
     (binding [*compile-path*     (str compile-path)
               *compiler-options* (or compiler-options *compiler-options*)]
       (doseq [namespace namespaces]
@@ -64,9 +63,8 @@
    (compile namespaces nil nil nil))
   ([namespaces compile-path classpath compiler-options]
    (let [compile-path   (or compile-path "target/classes")
-         compile-path   (io/path compile-path)
+         compile-path   (io/mkdir compile-path)
          ;; We must ensure early that the compile-path exists otherwise the Clojure Compiler has issues compiling classes / loading classes. I'm not sure why exactly
-         _              (io/create-directories compile-path)
          classpath      (or classpath (classpath/get-classpath))
          classpath-urls (->> classpath classpath->paths paths->urls (into-array URL))
          classloader    (URLClassLoader. classpath-urls (.getParent (ClassLoader/getSystemClassLoader)))

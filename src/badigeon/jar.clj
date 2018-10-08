@@ -2,7 +2,7 @@
   (:require
    [clojure.java.io :as jio]
    [clojure.string :as str]
-   [badigeon.io.alpha :as io]
+   [user.java.io.alpha :as io]
    )
   (:import
    java.io.ByteArrayOutputStream

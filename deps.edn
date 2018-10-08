@@ -1,4 +1,9 @@
-{:paths ["src"]
- :deps {org.clojure/clojure {:mvn/version "1.9.0"}
-        org.clojure/tools.deps.alpha {:mvn/version "0.5.442"}}
+{:deps {
+        org.apache.maven/maven-model {:mvn/version "3.5.4"}
+        org.clojure/clojure          {:mvn/version "1.9.0"}
+        org.clojure/tools.deps.alpha {:mvn/version "0.5.452"}
+
+        user.java.io {:git/url "git@github.com:aJchemist/user.java.io.git" :sha "6359302226d705f83f09ca750900091dd0fa96b2"}
+        }
+
  :aliases {:doc {:extra-paths ["src-doc"]}}}

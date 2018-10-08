@@ -1,6 +1,6 @@
 (ns badigeon.clean
   (:require
-   [badigeon.io.alpha :as io]
+   [user.java.io.alpha :as io]
    )
   (:import
    java.nio.file.FileVisitOption
@@ -43,12 +43,12 @@
   [path allow-outside-target?]
   (let [root-path   (io/path (System/getProperty "user.dir"))
         target-path (.resolve root-path "target")]
-    (when (not (io/is-parent-path? root-path path))
+    (when (not (io/parent-path? root-path path))
       (throw (IllegalArgumentException. "Cannot delete a directory outside of project root")))
     (when (and
             (not allow-outside-target?)
             (not (io/same-directory? target-path path))
-            (not (io/is-parent-path? target-path path)))
+            (not (io/parent-path? target-path path)))
       (throw (IllegalArgumentException. "Cannot delete a directory outside of target-directory. Consider setting the \"allow-outside-target?\" option if you really want to delete this directory.")))))
 
 
