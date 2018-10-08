@@ -127,7 +127,7 @@
          jarfs          (jar/getjarfs out-path)
          the-manifest   (jar/create-manifest main manifest)
          pom-properties (or pom-properties (pom/make-pom-properties lib maven-coords))
-         deps-map       (deps.reader/read-deps ["deps.edn"])
+         deps-map       (deps.reader/read-deps (:config-files (deps.reader/clojure-env)))
          paths          (or paths (:paths deps-map))]
      (when-not allow-all-dependencies?
        (check-non-maven-dependencies deps-map))

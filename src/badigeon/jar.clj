@@ -131,19 +131,18 @@
 (defn get-paths-copy-operations
   [paths]
   (let [operations (transient [])]
-    (doseq [start-path paths
-            :let       [start-path (io/path start-path)]]
-     (Files/walkFileTree
-       start-path
-       (EnumSet/of FileVisitOption/FOLLOW_LINKS)
-       Integer/MAX_VALUE
-       (make-file-visitor
-         (fn [^Path path ^BasicFileAttributes attrs]
-           (conj! operations
-             {:op   :copy
-              :src  path
-              :path (str (.relativize start-path path))
-              :time (. ^BasicFileAttributes attrs lastModifiedTime)})))))
+    (doseq [start-path paths :let [start-path (io/path start-path)]]
+      (Files/walkFileTree
+        start-path
+        (EnumSet/of FileVisitOption/FOLLOW_LINKS)
+        Integer/MAX_VALUE
+        (make-file-visitor
+          (fn [^Path path ^BasicFileAttributes attrs]
+            (conj! operations
+              {:op   :copy
+               :src  path
+               :path (str (.relativize start-path path))
+               :time (. ^BasicFileAttributes attrs lastModifiedTime)})))))
     (persistent! operations)))
 
 
