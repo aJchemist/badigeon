@@ -3,7 +3,7 @@
    [clojure.java.io :as jio]
    [clojure.tools.deps.alpha.reader :as deps.reader]
    [user.java.io.alpha :as io]
-   [badigeon.pom :as pom]
+   [badigeon.maven.alpha :as maven]
    [badigeon.jar :as jar]
    )
   (:import
