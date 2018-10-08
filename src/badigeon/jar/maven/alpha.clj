@@ -16,8 +16,8 @@
 
 
 (defn- path-resolve
-  [^Path a ^Path b]
-  (. a resolve b))
+  [^Path a b]
+  (. a resolve (str b)))
 
 
 (defn do-operations
@@ -25,8 +25,8 @@
   (doseq [op operations]
     (try
       (case (:op op)
-        :copy  (io/copy! (io/path (:src op)) (path-resolve dest (:path op)) (select-keys op [:time :mode]))
-        :write (io/write! (path-resolve dest (:path op)) (:writer-fn op))
+        :copy  (io/copy! (io/path (:src op)) (doto (path-resolve dest (:path op)) (io/mkparents)) (select-keys op [:time :mode]))
+        :write (io/write! (doto (path-resolve dest (:path op)) (io/mkparents)) (:writer-fn op))
         (throw (UnsupportedOperationException. (pr-str op))))
       (catch Throwable e
         (throw (ex-info "Operation failed:" {:operation op :exception e}))))))
