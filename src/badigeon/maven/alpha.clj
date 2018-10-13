@@ -30,6 +30,9 @@
 (set! *warn-on-reflection* true)
 
 
+(def ^:const MODEL_VERSION "4.0.0")
+
+
 ;; * model
 
 
@@ -164,6 +167,7 @@
 (defn ^Model gen-pom
   [^String group-id ^String artifact-id ^String version deps paths repos]
   (doto (Model.)
+    (.setModelVersion MODEL_VERSION)
     (.setGroupId group-id)
     (.setArtifactId artifact-id)
     (.setVersion version)
