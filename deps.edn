@@ -3,7 +3,7 @@
         org.clojure/clojure          {:mvn/version "1.9.0"}
         org.clojure/tools.deps.alpha {:mvn/version "0.5.452"}
 
-        user.java.io {:git/url "git@github.com:aJchemist/user.java.io.git" :sha "9b0b782ff9abaf07488140217a3121f8e2d63bc0"}
+        user.java.io {:git/url "https://github.com/aJchemist/user.java.io.git" :sha "9b0b782ff9abaf07488140217a3121f8e2d63bc0"}
         }
 
  :aliases {:doc {:extra-paths ["src-doc"]}}}
