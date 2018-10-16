@@ -1,6 +1,7 @@
 (ns badigeon.deploy
   (:require
    [clojure.tools.deps.alpha.util.maven :as maven]
+   [clojure.tools.deps.alpha.util.io :refer [printerrln]]
    [clojure.java.io :as jio]
    [badigeon.utils :as utils]
    )
@@ -8,13 +9,18 @@
    org.apache.maven.settings.DefaultMavenSettingsBuilder
    org.apache.maven.settings.building.DefaultSettingsBuilderFactory
    org.apache.maven.settings.crypto.DefaultSettingsDecrypter
+   org.apache.maven.settings.crypto.DefaultSettingsDecryptionRequest
    org.apache.maven.settings.crypto.SettingsDecrypter
    org.eclipse.aether.deployment.DeployRequest
    org.eclipse.aether.repository.RemoteRepository$Builder
+   org.eclipse.aether.transfer.TransferEvent
+   org.eclipse.aether.transfer.TransferEvent$RequestType
+   org.eclipse.aether.transfer.TransferListener
+   org.eclipse.aether.transfer.TransferResource
+   org.eclipse.aether.transfer.TransferResource
    org.eclipse.aether.util.repository.AuthenticationBuilder
    org.sonatype.plexus.components.cipher.DefaultPlexusCipher
    org.sonatype.plexus.components.sec.dispatcher.DefaultSecDispatcher
-   java.nio.file.Path
    ))
 
 
@@ -28,28 +34,38 @@
     (.set default-builder settings-builder)))
 
 
-(defn- get-settings
-  ^org.apache.maven.settings.Settings []
-  (.buildSettings
-   (doto (DefaultMavenSettingsBuilder.)
-     (set-settings-builder (.newInstance (DefaultSettingsBuilderFactory.))))))
+(def ^org.apache.maven.settings.Settings get-settings @(resolve 'maven/get-settings))
+
+
+(def ^TransferListener console-listener
+  (reify TransferListener
+    (transferStarted [_ event]
+      (let [event    ^TransferEvent event
+            resource (.getResource event)
+            name     (.getResourceName resource)]
+        (case (.. event getRequestType name)
+          ("GET" "GET_EXISTENCE") (printerrln "Downloading:" name "from" (.getRepositoryUrl resource))
+          "PUT"                   (printerrln "Uploading:" name "to" (.getRepositoryUrl resource))
+          nil)))
+    (transferCorrupted [_ event]
+      (printerrln "Download corrupted:" (.. ^TransferEvent event getException getMessage)))
+    (transferFailed [_ event]
+      ;; This happens when Maven can't find an artifact in a particular repo
+      ;; (but still may find it in a different repo), ie this is a common event
+      #_(printerrln "Download failed:" (.. ^TransferEvent event getException getMessage)))))
 
 
 (defn remote-repo
   [[id {:keys [url]}] credentials]
-  (let [repository          (RemoteRepository$Builder. id "default" url)
+  (let [repository (RemoteRepository$Builder. id "default" url)
         ^org.apache.maven.settings.Server server-setting
         (first (filter
                  #(.equalsIgnoreCase ^String id (.getId ^org.apache.maven.settings.Server %))
                  (.getServers (get-settings))))
-        ^String username    (or (:username credentials) (when server-setting
-                                                          (.getUsername server-setting)))
-        ^String password    (or (:password credentials) (when server-setting
-                                                          (.getPassword server-setting)))
-        ^String private-key (or (:private-key credentials) (when server-setting
-                                                             (.getPassword server-setting)))
-        ^String passphrase  (or (:passphrase credentials) (when server-setting
-                                                            (.getPassphrase server-setting)))]
+        ^String username    (or (:username credentials) (when server-setting (.getUsername server-setting)))
+        ^String password    (or (:password credentials) (when server-setting (.getPassword server-setting)))
+        ^String private-key (or (:private-key credentials) (when server-setting (.getPassword server-setting)))
+        ^String passphrase  (or (:passphrase credentials) (when server-setting (.getPassphrase server-setting)))]
     (-> repository
       (.setAuthentication (.build
                             (doto (AuthenticationBuilder.)
@@ -98,7 +114,8 @@
      (ensure-signed-artifacts artifacts version))
    (System/setProperty "aether.checksums.forSignature" "true")
    (let [system         (maven/make-system)
-         session        (maven/make-session system maven/default-local-repo)
+         session        (with-redefs [maven/console-listener console-listener]
+                          (maven/make-session system maven/default-local-repo))
          artifacts      (map (partial make-artifact lib version) artifacts)
          deploy-request (-> (DeployRequest.)
                           (.setRepository (remote-repo repository credentials)))
