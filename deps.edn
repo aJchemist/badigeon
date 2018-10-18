@@ -1,10 +1,11 @@
 {:paths ["src"]
- :deps   {
-          org.apache.maven/maven-model {:mvn/version "3.5.4"}
-          org.clojure/clojure          {:mvn/version "1.9.0"}
-          org.clojure/tools.deps.alpha {:mvn/version "0.5.452"}
+ :deps  {
+         org.apache.maven/maven-model {:mvn/version "3.5.4"}
+         org.clojure/tools.deps.alpha {:mvn/version "0.5.460"}
 
-          user.java.io {:git/url "https://github.com/aJchemist/user.java.io.git" :sha "9b0b782ff9abaf07488140217a3121f8e2d63bc0"}
-          }
+         user.java.io {:git/url "https://github.com/aJchemist/user.java.io.git" :sha "9b0b782ff9abaf07488140217a3121f8e2d63bc0"}
+         }
 
- :aliases {:doc {:extra-paths ["src-doc"]}}}
+ :aliases
+ {:provided {:extra-deps {org.clojure/clojure {:mvn/version "1.9.0"}}}
+  :doc      {:extra-paths ["src-doc"]}}}
