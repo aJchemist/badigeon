@@ -2,8 +2,7 @@
  :deps  {
          org.apache.maven/maven-model {:mvn/version "3.5.4"}
          org.clojure/tools.deps.alpha {:mvn/version "0.5.460"}
-
-         user.java.io {:git/url "https://github.com/aJchemist/user.java.io.git" :sha "9b0b782ff9abaf07488140217a3121f8e2d63bc0"}
+         user.java.io                 {:mvn/version "2018.286.80350"}
          }
 
  :aliases
